@@ -1,5 +1,6 @@
 import { Action, isMovePawn, isPlaceWall, WallType } from './action';
 import { AlgebraicCoordinate, Coordinate, coordinateToAlgebraic } from './coordinate';
+import { Direction } from './direction';
 
 export interface GameOptions {
     numCols?: number;
@@ -82,8 +83,41 @@ export class Game {
     }
 
     public validMoveActions(): Array<Action> {
-        const pawnCoordinate = this._playerPositions[this._playerToMove - 1];
+        const validActions: Array<Action> = [];
+        const originPawnCoord = this._playerPositions[this._playerToMove - 1];
 
+        // Generate all possible pawn moves. This array is used as a stack to track which moves are left to check.
+        // Additional checks are needed in the case that a pawn is blocked by a another pawn.
+        const pawnCoordDirs = this.dirs().map(dir => [originPawnCoord, dir] as [Coordinate, Direction]);
+
+        for (const [coordinate, dir] of pawnCoordDirs) {
+            // Check if the pawn can move in the given direction. If it can, simply add to the list and stop.
+            if (this.pawnCanMove(coordinate, dir)) {
+                validActions.push({ coordinate });
+                continue;
+            }
+
+            // If the pawn can't move, but there is no pawn in the way, then it must be the wall or edge of the board so stop here.
+            const destCoord = coordinateInDir(coordinate, dir);
+            if (!this.hasPawn(destCoord)) {
+                continue;
+            }
+
+            // There is a pawn in the way so check if it can jump over it.
+            if (this.pawnCanMove(destCoord, dir)) {
+                validActions.push({ coordinate: destCoord });
+                continue;
+            }
+
+            // There is a pawn in the way and it can't jump over it, so check the adjacent (left or right) directions.
+            for (const coordinate of adjacentCoords(destCoord)) {
+                if (this.pawnCanMove(coordinate, dir)) {
+                    validActions.push({ coordinate });
+                }
+            }
+        }
+
+        return validActions;
     }
 
     public validWallActions(): Array<Action> {
@@ -104,4 +138,16 @@ export class Game {
             this._moveNumber += 1;
         }
     }
+
+    private pawnCanMove(coordinate: Coordinate, dir: Direction): boolean {
+
+    }
+
+    private hasWall(coordinate: Coordinate, wallType: WallType): boolean {
+    }
+
+    private hasPawn(coordinate: Coordinate): boolean {
+    }
+
+    private dirs = (): Array<Direction> => [Direction.Up, Direction.Right, Direction.Down, Direction.Left];
 }
