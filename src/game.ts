@@ -1,5 +1,5 @@
 import { Action, isMovePawn, isPlaceWall, WallType } from './action';
-import { AlgebraicCoordinate, Coordinate, coordinateToAlgebraic } from './coordinate';
+import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar } from './coordinate';
 import { Direction } from './direction';
 
 export interface GameOptions {
@@ -29,8 +29,8 @@ export class Game {
     private _numPlayers: number;
     private _playerWallsRemaining: Array<number>;
     private _playerPositions: Array<Coordinate>;
-    private _horizontalWalls: Set<AlgebraicCoordinate>;
-    private _verticalWalls: Set<AlgebraicCoordinate>;
+    private _horizontalWalls: Set<AlgebraicCoordinate> = new Set();
+    private _verticalWalls: Set<AlgebraicCoordinate> = new Set();
 
     constructor({ numCols = 9, numRows = 9, numPlayers = 2, wallsPerPlayer = 10 }: GameOptions = {}) {
         this._numCols = numCols;
@@ -39,6 +39,7 @@ export class Game {
         this._playerWallsRemaining = Array(numPlayers).fill(wallsPerPlayer);
         this._playerToMove = 1;
         this._moveNumber = 1;
+        this._playerPositions = this.initialPlayerPositions();
     }
 
     public numWalls({ playerNum }: { playerNum: number }): number;
@@ -82,18 +83,15 @@ export class Game {
         this.updatePlayerToMove();
     }
 
-    public validMoveActions(): Array<Action> {
+    public validPawnMoveActions(): Array<Action> {
         const validActions: Array<Action> = [];
-        const originPawnCoord = this._playerPositions[this._playerToMove - 1];
+        const coordinate = this._playerPositions[this._playerToMove - 1];
 
-        // Generate all possible pawn moves. This array is used as a stack to track which moves are left to check.
-        // Additional checks are needed in the case that a pawn is blocked by a another pawn.
-        const pawnCoordDirs = this.dirs().map(dir => [originPawnCoord, dir] as [Coordinate, Direction]);
-
-        for (const [coordinate, dir] of pawnCoordDirs) {
+        for (const dir of this.dirs()) {
             // Check if the pawn can move in the given direction. If it can, simply add to the list and stop.
             if (this.pawnCanMove(coordinate, dir)) {
-                validActions.push({ coordinate });
+                const validPawnMoveDest = coordinateInDir(coordinate, dir);
+                validActions.push({ coordinate: validPawnMoveDest });
                 continue;
             }
 
@@ -105,14 +103,16 @@ export class Game {
 
             // There is a pawn in the way so check if it can jump over it.
             if (this.pawnCanMove(destCoord, dir)) {
-                validActions.push({ coordinate: destCoord });
+                const validPawnMoveDest = coordinateInDir(destCoord, dir);
+                validActions.push({ coordinate: validPawnMoveDest });
                 continue;
             }
 
             // There is a pawn in the way and it can't jump over it, so check the adjacent (left or right) directions.
-            for (const coordinate of adjacentCoords(destCoord)) {
+            for (const coordinate of adjacentCoords(destCoord, dir)) {
                 if (this.pawnCanMove(coordinate, dir)) {
-                    validActions.push({ coordinate });
+                    const validPawnMoveDest = coordinateInDir(coordinate, dir);
+                    validActions.push({ coordinate: validPawnMoveDest });
                 }
             }
         }
@@ -125,7 +125,7 @@ export class Game {
     }
 
     public validActions(): Array<Action> {
-        return this.validMoveActions().concat(this.validWallActions());
+        return this.validPawnMoveActions().concat(this.validWallActions());
     }
 
     public moveNumber(): number {
@@ -140,14 +140,67 @@ export class Game {
     }
 
     private pawnCanMove(coordinate: Coordinate, dir: Direction): boolean {
+        const destCoord = coordinateInDir(coordinate, dir);
 
+        const isInBounds = this.isInBounds(destCoord);
+        if (!isInBounds) {
+            return false;
+        }
+
+        const occupiedByPawn = this.hasPawn(destCoord);
+        if (occupiedByPawn) {
+            return false;
+        }
+
+        // Walls are in notation of the coordinate that is in the bottom left of the wall.
+        // When moving up, check if there is a wall on the cell that the pawn is in or the cell to the left.
+        // When moving down, check if there is a wall on the cell below the pawn or the cell to the left of it.
+        // When moving to the right, check if there is a wall on the cell of the pawn or the cell below it.
+        // When moving to the left, check if there is a wall on the cell to the left of the pawn or the cell below it.
+        const wallType = dir === Direction.Up || dir === Direction.Down ? WallType.Horizontal : WallType.Vertical;
+        const wallOffsetDir = dir === Direction.Up || dir === Direction.Down ? Direction.Left : Direction.Down;
+        const wallCoord = dir === Direction.Up || dir === Direction.Right ? coordinate : destCoord;
+        const wallOffsetCoord = coordinateInDir(wallCoord, wallOffsetDir);
+        const blockedByWall = this.hasWall(wallCoord, wallType) || this.hasWall(wallOffsetCoord, wallType);
+
+        return !blockedByWall;
+    }
+
+    private isInBounds({ column, row }: Coordinate) {
+        const numericColumn = columnNumericValue(column);
+        return row >= 1 && row <= this._numRows && numericColumn >= 1 && numericColumn <= this._numCols;
     }
 
     private hasWall(coordinate: Coordinate, wallType: WallType): boolean {
+        const wallCoordinates = wallType === WallType.Horizontal ? this._horizontalWalls : this._verticalWalls;
+        return wallCoordinates.has(coordinateToAlgebraic(coordinate));
     }
 
-    private hasPawn(coordinate: Coordinate): boolean {
+    private hasPawn({ column, row }: Coordinate): boolean {
+        return this._playerPositions.some(({ column: playerPosColumn, row: playerPositionRow }) => column === playerPosColumn && row === playerPositionRow);
     }
 
     private dirs = (): Array<Direction> => [Direction.Up, Direction.Right, Direction.Down, Direction.Left];
+
+    private initialPlayerPositions(): Coordinate[] {
+        const playerPositions: Coordinate[] = [];
+        const middleRow = Math.floor((this._numRows + 1) / 2);
+        const middleColumn = numericColumnToChar(Math.floor((this._numCols + 1) / 2));
+
+        playerPositions[0] = { column: middleColumn, row: 1 };
+
+        if (this._numPlayers >= 2) {
+            playerPositions[1] = { column: middleColumn, row: this._numRows };
+        }
+
+        if (this._numPlayers >= 3) {
+            playerPositions[2] = { column: 'a', row: middleRow };
+        }
+
+        if (this._numPlayers >= 4) {
+            playerPositions[3] = { column: numericColumnToChar(this._numCols), row: middleRow };
+        }
+
+        return playerPositions;
+    }
 }

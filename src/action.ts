@@ -1,4 +1,4 @@
-import { Coordinate, coordinateToAlgebraic } from './coordinate';
+import { Coordinate, coordinateToAlgebraic, parseCoordinate } from './coordinate';
 
 export type Action = MovePawn | PlaceWall;
 
@@ -18,15 +18,22 @@ export interface MovePawn {
     coordinate: Coordinate;
 }
 
-export function isPlaceWall(action: Action): action is PlaceWall {
-    return 'wallType' in action;
+export const parseAction = (action: AlgebraicAction): Action => {
+    const coordinate = parseCoordinate(action.slice(0, 2));
+
+    if (action.length > 2) {
+        const wallType = action[2] as WallType;
+        return { wallType, coordinate };
+    }
+
+    return { coordinate };
 }
 
-export function isMovePawn(action: Action): action is MovePawn {
-    return !('wallType' in action);
-}
+export const isPlaceWall = (action: Action): action is PlaceWall => 'wallType' in action;
 
-export function actionToAlgebraic(action: Action): AlgebraicAction {
+export const isMovePawn = (action: Action): action is MovePawn => !('wallType' in action);
+
+export const actionToAlgebraic = (action: Action): AlgebraicAction => {
     const algebraicCoordinate = coordinateToAlgebraic(action.coordinate);
 
     if (isPlaceWall(action)) {
