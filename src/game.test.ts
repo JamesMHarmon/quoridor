@@ -1,4 +1,4 @@
-import { parseAction } from './action';
+import { parseAction, actionToAlgebraic } from './action';
 import { Game } from './game';
 
 describe('Game', () => {
@@ -45,7 +45,7 @@ describe('Game', () => {
     describe('validPawnMoveActions', () => {
         test('should return valid pawn moves', () => {
             const game = new Game();
-            const validActions = game.validPawnMoveActions();
+            let validActions = game.validPawnMoveActions();
 
             expect(validActions).toEqual([
                 { coordinate: { column: 'e', row: 2 } },
@@ -55,8 +55,8 @@ describe('Game', () => {
 
             game.takeAction(parseAction('e2'));
 
-            const validActions2 = game.validPawnMoveActions();
-            expect(validActions2).toEqual([
+            validActions = game.validPawnMoveActions();
+            expect(validActions).toEqual([
                 { coordinate: { column: 'f', row: 9 } },
                 { coordinate: { column: 'e', row: 8 } },
                 { coordinate: { column: 'd', row: 9 } },
@@ -152,7 +152,7 @@ describe('Game', () => {
             game.takeAction(parseAction('a1'));
             game.playerToMove({ playerNum: 1 });
 
-            const validActions = game.validPawnMoveActions();
+            let validActions = game.validPawnMoveActions();
             expect(validActions).toEqual([
                 { coordinate: { column: 'a', row: 2 } },
                 { coordinate: { column: 'b', row: 1 } },
@@ -161,11 +161,47 @@ describe('Game', () => {
             game.takeAction(parseAction('i9'));
             game.playerToMove({ playerNum: 1 });
 
-            const validActions2 = game.validPawnMoveActions();
-            expect(validActions2).toEqual([
+            validActions = game.validPawnMoveActions();
+            expect(validActions).toEqual([
                 { coordinate: { column: 'i', row: 8 } },
                 { coordinate: { column: 'h', row: 9 } },
             ]);
+        });
+
+        test('It should return all valid wall placements actions', () => {
+            const game = new Game();
+            let validActions = game.validWallActions();
+            expect(validActions.length).toBe(128);
+
+            game.takeAction(parseAction('e2h'));
+            validActions = game.validWallActions();
+
+            const invalidActions = ['e2v', 'e2h', 'd2h', 'f2h'];
+            validActions.forEach(validAction =>
+                invalidActions.forEach(
+                    invalidAction => expect(actionToAlgebraic(validAction)).not.toBe(invalidAction)
+                )
+            );
+
+            expect(validActions.length).toBe(124);
+        });
+
+        test('It should return all valid wall placements actions vertical', () => {
+            const game = new Game();
+            let validActions = game.validWallActions();
+            expect(validActions.length).toBe(128);
+
+            game.takeAction(parseAction('e3v'));
+            validActions = game.validWallActions();
+
+            const invalidActions = ['e3h', 'e4v', 'e3v', 'e2v'];
+            validActions.forEach(validAction =>
+                invalidActions.forEach(
+                    invalidAction => expect(actionToAlgebraic(validAction)).not.toBe(invalidAction)
+                )
+            );
+
+            expect(validActions.length).toBe(124);
         });
     });
 });

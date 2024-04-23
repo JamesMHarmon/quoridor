@@ -121,7 +121,7 @@ export class Game {
     }
 
     public validWallActions(): Array<Action> {
-        return [];
+        return this.wallPlacements();
     }
 
     public validActions(): Array<Action> {
@@ -130,6 +130,26 @@ export class Game {
 
     public moveNumber(): number {
         return this._moveNumber;
+    }
+
+    private wallPlacements(): Array<Action> {
+        return [WallType.Horizontal, WallType.Vertical].flatMap(wallType => {
+            const oppositeWallType = wallType === WallType.Horizontal ? WallType.Vertical : WallType.Horizontal;
+            const offsets = wallType === WallType.Horizontal ? [Direction.Left, Direction.Right] : [Direction.Up, Direction.Down];
+            const collidesWithExistingWall = (coordinate: Coordinate) => this.hasWall(coordinate, wallType) || this.hasWall(coordinate, oppositeWallType) || offsets.some(offset => this.hasWall(coordinateInDir(coordinate, offset), wallType));
+
+            const wallPlacements: Array<Action> = [];
+            for (let row = 1; row < this._numRows; row++) {
+                for (let column = 1; column < this._numCols; column++) {
+                    const coordinate = { column: numericColumnToChar(column), row };
+                    if (!collidesWithExistingWall(coordinate)) {
+                        wallPlacements.push({ coordinate, wallType });
+                    }
+                }
+            }
+
+            return wallPlacements;
+        });
     }
 
     private updatePlayerToMove() {
