@@ -88,16 +88,17 @@ export class Game {
         const coordinate = this._playerPositions[this._playerToMove - 1];
 
         for (const dir of this.dirs()) {
-            // Check if the pawn can move in the given direction. If it can, simply add to the list and stop.
-            if (this.pawnCanMove(coordinate, dir)) {
-                const validPawnMoveDest = coordinateInDir(coordinate, dir);
-                validActions.push({ coordinate: validPawnMoveDest });
+            // If the pawn can't move, then it must be the wall or edge of the board so stop here.
+            if (!this.pawnCanMove(coordinate, dir)) {
                 continue;
             }
 
-            // If the pawn can't move, but there is no pawn in the way, then it must be the wall or edge of the board so stop here.
+            // If the pawn can move and there is no pawn at the destination, then add the destination to the list of valid moves.
             const destCoord = coordinateInDir(coordinate, dir);
-            if (!this.hasPawn(destCoord)) {
+            const pawnAtDest = this.hasPawn(destCoord);
+            if (!pawnAtDest) {
+                const validPawnMoveDest = coordinateInDir(coordinate, dir);
+                validActions.push({ coordinate: validPawnMoveDest });
                 continue;
             }
 
@@ -133,14 +134,20 @@ export class Game {
     }
 
     private wallPlacements(): Array<Action> {
+        const playerNum = this.playerToMove();
+        if (this.numWalls({ playerNum }) <= 0) {
+            return [];
+        }
+
         return [WallType.Horizontal, WallType.Vertical].flatMap(wallType => {
-            const collidesWithExistingWall = (coordinate: Coordinate) => this.collidesWithExistingWall(coordinate, wallType);
+            const collidesWithExistingWall = (coordinate: Coordinate) => this.collidesWithExistingWall({ coordinate, wallType });
+            const isWallBlocking = (coordinate: Coordinate) => this.isWallBlocking({ coordinate, wallType });
 
             const wallPlacements: Array<Action> = [];
             for (let row = 1; row < this._numRows; row++) {
                 for (let column = 1; column < this._numCols; column++) {
                     const coordinate = { column: numericColumnToChar(column), row };
-                    if (!collidesWithExistingWall(coordinate)) {
+                    if (!collidesWithExistingWall(coordinate) && !isWallBlocking(coordinate)) {
                         wallPlacements.push({ coordinate, wallType });
                     }
                 }
@@ -150,7 +157,7 @@ export class Game {
         });
     }
 
-    private collidesWithExistingWall(coordinate: Coordinate, wallType: WallType): boolean {
+    private collidesWithExistingWall({ coordinate, wallType }: PlaceWall): boolean {
         const isHorizontalWall = wallType === WallType.Horizontal;
         const oppositeWallType = isHorizontalWall ? WallType.Vertical : WallType.Horizontal;
         const offsetA = isHorizontalWall ? [Direction.Left] : [Direction.Up];
@@ -168,7 +175,7 @@ export class Game {
         return collidesWithExistingWall;
     }
 
-    private isWallABlockingCandidate({ coordinate, wallType }: PlaceWall): boolean {
+    private canWallBlock({ coordinate, wallType }: PlaceWall): boolean {
         // If the wall does not connect two points, then it cannot block the path of a pawn.
         const { sideACandidates, sideBCandidates, middleCandidates } = this.touchingWallCandidates(wallType);
 
@@ -178,6 +185,63 @@ export class Game {
 
         // Return true if any two or more of the sides are touching existing walls.
         return (sideATouching && sideBTouching) || (sideATouching && middleTouching) || (sideBTouching && middleTouching);
+    }
+
+    private isWallBlocking({ coordinate, wallType }: PlaceWall): boolean {
+        if (!this.canWallBlock({ coordinate, wallType })) {
+            return false;
+        }
+
+        const wallSet = wallType === WallType.Horizontal ? this._horizontalWalls : this._verticalWalls;
+        const algebraicCoordinate = coordinateToAlgebraic(coordinate);
+        let isBlocking = false;
+
+        // Add the candidate wall to the set of walls and check if the goal is reachable for each player.
+        wallSet.add(algebraicCoordinate);
+
+        for (const [index, playerPosition] of this._playerPositions.entries()) {
+            const playerNum = index + 1;
+            const accessibleSquares = new Set<AlgebraicCoordinate>();
+            const addCandidateMoves = (coord: Coordinate) => this.dirsBiassedTowardsGoal(playerNum).forEach(dir => candidateMoves.push([coord, dir]));
+            const candidateMoves: [Coordinate, Direction][] = [];
+            let goalReached = false;
+
+            addCandidateMoves(playerPosition);
+            accessibleSquares.add(coordinateToAlgebraic(playerPosition));
+
+            while (candidateMoves.length) {
+                const [candidateCoord, candidateDir] = candidateMoves.pop();
+
+                if (this.isCoordinateGoal(playerNum, candidateCoord)) {
+                    goalReached = true;
+                    break;
+                }
+
+                const destCoord = coordinateInDir(candidateCoord, candidateDir);
+                const algebraicDestCoord = coordinateToAlgebraic(destCoord);
+
+                // This destination square has already been visited so we can ignore it.
+                if (accessibleSquares.has(algebraicDestCoord)) {
+                    continue;
+                }
+
+                if (this.pawnCanMove(candidateCoord, candidateDir)) {
+                    accessibleSquares.add(algebraicDestCoord);
+                    addCandidateMoves(destCoord);
+                }
+            }
+
+            // Goal was never reached for the player, so the wall is blocking.
+            if (!goalReached) {
+                isBlocking = true;
+                break;
+            }
+        }
+
+        // Remove the candidate wall from the set of walls as it was added temporarily for validation of if a wall is blocking.
+        wallSet.delete(algebraicCoordinate);
+
+        return isBlocking;
     }
 
     private someWallAtOffsets = (coordinate: Coordinate, offsets: Array<WallOffset>): boolean => offsets.some((wallOffset) => this.wallAtOffset(coordinate, wallOffset));
@@ -195,11 +259,6 @@ export class Game {
 
         const isInBounds = this.isInBounds(destCoord);
         if (!isInBounds) {
-            return false;
-        }
-
-        const occupiedByPawn = this.hasPawn(destCoord);
-        if (occupiedByPawn) {
             return false;
         }
 
@@ -233,6 +292,22 @@ export class Game {
 
     private dirs = (): Array<Direction> => [Direction.Up, Direction.Right, Direction.Down, Direction.Left];
 
+    /// Returns the directions that a player should be biased towards moving in based on their player number.
+    /// This is to help for efficiency reasons in performing goal reachability checks.
+    private dirsBiassedTowardsGoal = (playerNum: number): Array<Direction> => {
+        if (playerNum === 1) {
+            return [Direction.Up, Direction.Right, Direction.Left, Direction.Down];
+        } else if (playerNum === 2) {
+            return [Direction.Down, Direction.Right, Direction.Left, Direction.Up];
+        } else if (playerNum === 3) {
+            return [Direction.Left, Direction.Up, Direction.Down, Direction.Right];
+        } else if (playerNum === 4) {
+            return [Direction.Right, Direction.Up, Direction.Down, Direction.Left];
+        }
+
+        return [];
+    }
+
     private initialPlayerPositions(): Coordinate[] {
         const playerPositions: Coordinate[] = [];
         const middleRow = Math.floor((this._numRows + 1) / 2);
@@ -255,9 +330,24 @@ export class Game {
         return playerPositions;
     }
 
+    /// Returns true if the coordinate is a goal for the player.
+    private isCoordinateGoal(playerNum: number, { row, column }: Coordinate): boolean {
+        if (playerNum === 1) {
+            return row === this._numRows;
+        } else if (playerNum === 2) {
+            return row === 1;
+        } else if (playerNum === 3) {
+            return column === numericColumnToChar(this._numCols);
+        } else if (playerNum === 4) {
+            return column === 'a';
+        }
+
+        return false;
+    }
+
     /// Returns the offsets and wall types that need to be checked for a wall that is touching another wall.
     private touchingWallCandidates(wallType: WallType): TouchingWallCandidates {
-        const isHorizontalWall = wallType === WallType.Vertical;
+        const isHorizontalWall = wallType === WallType.Horizontal;
         const oppositeWallType = isHorizontalWall ? WallType.Vertical : WallType.Horizontal;
         const sideADirection = isHorizontalWall ? Direction.Up : Direction.Left;
         const sideBDirection = isHorizontalWall ? Direction.Down : Direction.Right;
