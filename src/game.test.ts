@@ -237,4 +237,11 @@ describe('Game', () => {
             expect(validActions.length).toBe(0);
         });
     });
+
+    describe('takeAction', () => {
+        test('It should allow for algebraic notation', () => {
+            game.takeAction('e2');
+            expect(game.playerPosition({ playerNum: 1 })).toEqual({ column: 'e', row: 2 });
+        });
+    });
 });

@@ -1,5 +1,5 @@
-import { Action, isMovePawn, isPlaceWall, PlaceWall, WallType } from './action';
-import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate } from './coordinate';
+import { Action, isMovePawn, isPlaceWall, MovePawn, parseAction, PlaceWall, WallType } from './action';
+import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate, areCoordinatesEqual } from './coordinate';
 import { Direction, dirs, dirsBiassedTowardsGoal } from './direction';
 
 export interface GameOptions {
@@ -62,13 +62,25 @@ export class Game {
         }
     }
 
+    public playerPosition({ playerNum }: { playerNum: number }): Coordinate;
+    public playerPosition({ playerNum, coordinate }: { playerNum: number, coordinate: Coordinate }): void;
+    public playerPosition({ playerNum, coordinate }: { playerNum: number, coordinate?: Coordinate }): Coordinate | void {
+        if (coordinate !== undefined) {
+            this._playerPositions[playerNum - 1] = coordinate;
+        } else {
+            return this._playerPositions[playerNum - 1];
+        }
+    }
+
     public numColumns = (): number => this._numCols;
 
     public numRows = (): number => this._numRows;
 
     public numPlayers = (): number => this._numPlayers;
 
-    public takeAction(action: Action) {
+    public takeAction(action: Action | string) {
+        action = this.intoAction(action);
+
         if (isMovePawn(action)) {
             this._playerPositions[this._playerToMove - 1] = { ...action.coordinate };
         }
@@ -81,6 +93,10 @@ export class Game {
         }
 
         this.updatePlayerToMove();
+    }
+
+    public validActions(): Array<Action> {
+        return this.validPawnMoveActions().concat(this.validWallActions());
     }
 
     public validPawnMoveActions(): Array<Action> {
@@ -125,29 +141,37 @@ export class Game {
         return this.wallPlacements();
     }
 
-    public validActions(): Array<Action> {
-        return this.validPawnMoveActions().concat(this.validWallActions());
+    public isValid(action: Action | string): boolean {
+        action = this.intoAction(action);
+
+        if (isMovePawn(action)) {
+            return this.isValidPawnMove(action);
+        }
+
+        return this.playerHasWalls() && this.isValidWallPlacement(action);
     }
 
     public moveNumber(): number {
         return this._moveNumber;
     }
 
+    private isValidPawnMove = ({ coordinate }: MovePawn): boolean => this.validPawnMoveActions().some(({ coordinate: validCoord }) => areCoordinatesEqual(validCoord, coordinate));
+
+    private isValidWallPlacement = (action: PlaceWall): boolean => !this.collidesWithExistingWall(action) && !this.isWallBlocking(action);
+
+    private playerHasWalls = () => this.numWalls({ playerNum: this.playerToMove() }) > 0
+
     private wallPlacements(): Array<Action> {
-        const playerNum = this.playerToMove();
-        if (this.numWalls({ playerNum }) <= 0) {
+        if (!this.playerHasWalls()) {
             return [];
         }
 
         return [WallType.Horizontal, WallType.Vertical].flatMap(wallType => {
-            const collidesWithExistingWall = (coordinate: Coordinate) => this.collidesWithExistingWall({ coordinate, wallType });
-            const isWallBlocking = (coordinate: Coordinate) => this.isWallBlocking({ coordinate, wallType });
-
             const wallPlacements: Array<Action> = [];
             for (let row = 1; row < this._numRows; row++) {
                 for (let column = 1; column < this._numCols; column++) {
                     const coordinate = { column: numericColumnToChar(column), row };
-                    if (!collidesWithExistingWall(coordinate) && !isWallBlocking(coordinate)) {
+                    if (this.isValidWallPlacement({ coordinate, wallType })) {
                         wallPlacements.push({ coordinate, wallType });
                     }
                 }
@@ -354,6 +378,8 @@ export class Game {
             middleCandidates: middleCandidates()
         }
     }
+
+    private intoAction = (action: Action | string): Action => typeof action === 'string' ? parseAction(action) : action;
 }
 
 type TouchingWallCandidates = {

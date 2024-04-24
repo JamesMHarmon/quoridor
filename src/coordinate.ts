@@ -51,4 +51,6 @@ export const adjacentCoords = (coordinate: Coordinate, dir: Direction): Array<Co
 
 export const offsetCoordinate = (coordinate: Coordinate, offsets: Array<Direction>) => offsets.reduce((coord, dir) => coordinateInDir(coord, dir), coordinate);
 
+export const areCoordinatesEqual = (coord1: Coordinate, coord2: Coordinate): boolean => coord1.row === coord2.row && coord1.column === coord2.column;
+
 const charCodeA = 'a'.charCodeAt(0);
