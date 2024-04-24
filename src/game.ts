@@ -1,6 +1,6 @@
 import { Action, isMovePawn, isPlaceWall, PlaceWall, WallType } from './action';
 import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate } from './coordinate';
-import { Direction } from './direction';
+import { Direction, dirs, dirsBiassedTowardsGoal } from './direction';
 
 export interface GameOptions {
     numCols?: number;
@@ -87,7 +87,7 @@ export class Game {
         const validActions: Array<Action> = [];
         const coordinate = this._playerPositions[this._playerToMove - 1];
 
-        for (const dir of this.dirs()) {
+        for (const dir of dirs()) {
             // If the pawn can't move, then it must be the wall or edge of the board so stop here.
             if (!this.pawnCanMove(coordinate, dir)) {
                 continue;
@@ -202,7 +202,7 @@ export class Game {
         for (const [index, playerPosition] of this._playerPositions.entries()) {
             const playerNum = index + 1;
             const accessibleSquares = new Set<AlgebraicCoordinate>();
-            const addCandidateMoves = (coord: Coordinate) => this.dirsBiassedTowardsGoal(playerNum).forEach(dir => candidateMoves.push([coord, dir]));
+            const addCandidateMoves = (coord: Coordinate) => dirsBiassedTowardsGoal(playerNum).forEach(dir => candidateMoves.push([coord, dir]));
             const candidateMoves: [Coordinate, Direction][] = [];
             let goalReached = false;
 
@@ -288,24 +288,6 @@ export class Game {
 
     private hasPawn({ column, row }: Coordinate): boolean {
         return this._playerPositions.some(({ column: playerPosColumn, row: playerPositionRow }) => column === playerPosColumn && row === playerPositionRow);
-    }
-
-    private dirs = (): Array<Direction> => [Direction.Up, Direction.Right, Direction.Down, Direction.Left];
-
-    /// Returns the directions that a player should be biased towards moving in based on their player number.
-    /// This is to help for efficiency reasons in performing goal reachability checks.
-    private dirsBiassedTowardsGoal = (playerNum: number): Array<Direction> => {
-        if (playerNum === 1) {
-            return [Direction.Up, Direction.Right, Direction.Left, Direction.Down];
-        } else if (playerNum === 2) {
-            return [Direction.Down, Direction.Right, Direction.Left, Direction.Up];
-        } else if (playerNum === 3) {
-            return [Direction.Left, Direction.Up, Direction.Down, Direction.Right];
-        } else if (playerNum === 4) {
-            return [Direction.Right, Direction.Up, Direction.Down, Direction.Left];
-        }
-
-        return [];
     }
 
     private initialPlayerPositions(): Coordinate[] {
