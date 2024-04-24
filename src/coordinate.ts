@@ -49,4 +49,6 @@ export const adjacentCoords = (coordinate: Coordinate, dir: Direction): Array<Co
     return coords;
 }
 
+export const offsetCoordinate = (coordinate: Coordinate, offsets: Array<Direction>) => offsets.reduce((coord, dir) => coordinateInDir(coord, dir), coordinate);
+
 const charCodeA = 'a'.charCodeAt(0);

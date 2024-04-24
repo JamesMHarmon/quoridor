@@ -1,5 +1,5 @@
-import { Action, isMovePawn, isPlaceWall, WallType } from './action';
-import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar } from './coordinate';
+import { Action, isMovePawn, isPlaceWall, PlaceWall, WallType } from './action';
+import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate } from './coordinate';
 import { Direction } from './direction';
 
 export interface GameOptions {
@@ -134,9 +134,7 @@ export class Game {
 
     private wallPlacements(): Array<Action> {
         return [WallType.Horizontal, WallType.Vertical].flatMap(wallType => {
-            const oppositeWallType = wallType === WallType.Horizontal ? WallType.Vertical : WallType.Horizontal;
-            const offsets = wallType === WallType.Horizontal ? [Direction.Left, Direction.Right] : [Direction.Up, Direction.Down];
-            const collidesWithExistingWall = (coordinate: Coordinate) => this.hasWall(coordinate, wallType) || this.hasWall(coordinate, oppositeWallType) || offsets.some(offset => this.hasWall(coordinateInDir(coordinate, offset), wallType));
+            const collidesWithExistingWall = (coordinate: Coordinate) => this.collidesWithExistingWall(coordinate, wallType);
 
             const wallPlacements: Array<Action> = [];
             for (let row = 1; row < this._numRows; row++) {
@@ -151,6 +149,39 @@ export class Game {
             return wallPlacements;
         });
     }
+
+    private collidesWithExistingWall(coordinate: Coordinate, wallType: WallType): boolean {
+        const isHorizontalWall = wallType === WallType.Horizontal;
+        const oppositeWallType = isHorizontalWall ? WallType.Vertical : WallType.Horizontal;
+        const offsetA = isHorizontalWall ? [Direction.Left] : [Direction.Up];
+        const offsetB = isHorizontalWall ? [Direction.Right] : [Direction.Down];
+        const noOffset = [];
+
+        const candidates = [
+            { offsets: noOffset, wallType },
+            { offsets: noOffset, wallType: oppositeWallType },
+            { offsets: offsetA, wallType },
+            { offsets: offsetB, wallType }
+        ];
+
+        const collidesWithExistingWall = this.someWallAtOffsets(coordinate, candidates);
+        return collidesWithExistingWall;
+    }
+
+    private isWallABlockingCandidate({ coordinate, wallType }: PlaceWall): boolean {
+        // If the wall does not connect two points, then it cannot block the path of a pawn.
+        const { sideACandidates, sideBCandidates, middleCandidates } = this.touchingWallCandidates(wallType);
+
+        const sideATouching = this.someWallAtOffsets(coordinate, sideACandidates);
+        const sideBTouching = this.someWallAtOffsets(coordinate, sideBCandidates);
+        const middleTouching = this.someWallAtOffsets(coordinate, middleCandidates);
+
+        // Return true if any two or more of the sides are touching existing walls.
+        return (sideATouching && sideBTouching) || (sideATouching && middleTouching) || (sideBTouching && middleTouching);
+    }
+
+    private someWallAtOffsets = (coordinate: Coordinate, offsets: Array<WallOffset>): boolean => offsets.some((wallOffset) => this.wallAtOffset(coordinate, wallOffset));
+    private wallAtOffset = (coordinate: Coordinate, { offsets, wallType }: WallOffset): boolean => this.hasWall(offsetCoordinate(coordinate, offsets), wallType);
 
     private updatePlayerToMove() {
         this._playerToMove = (this._playerToMove % this._numPlayers) + 1;
@@ -223,4 +254,40 @@ export class Game {
 
         return playerPositions;
     }
+
+    /// Returns the offsets and wall types that need to be checked for a wall that is touching another wall.
+    private touchingWallCandidates(wallType: WallType): TouchingWallCandidates {
+        const isHorizontalWall = wallType === WallType.Vertical;
+        const oppositeWallType = isHorizontalWall ? WallType.Vertical : WallType.Horizontal;
+        const sideADirection = isHorizontalWall ? Direction.Up : Direction.Left;
+        const sideBDirection = isHorizontalWall ? Direction.Down : Direction.Right;
+        const perpendicularDirection = isHorizontalWall ? Direction.Up : Direction.Left;
+        const perpendicularDirectionInverse = isHorizontalWall ? Direction.Down : Direction.Right;
+
+        const sideCandidates = (sideDirection: Direction) => [
+            { offsets: [sideDirection], wallType: oppositeWallType },
+            { offsets: [perpendicularDirection, sideDirection], wallType: oppositeWallType },
+            { offsets: [perpendicularDirectionInverse, sideDirection], wallType: oppositeWallType },
+            { offsets: [sideDirection, sideDirection], wallType },
+        ];
+
+        const middleCandidates = () => [
+            { offsets: [perpendicularDirection], wallType: oppositeWallType },
+            { offsets: [perpendicularDirectionInverse], wallType: oppositeWallType },
+        ];
+
+        return {
+            sideACandidates: sideCandidates(sideADirection),
+            sideBCandidates: sideCandidates(sideBDirection),
+            middleCandidates: middleCandidates()
+        }
+    }
 }
+
+type TouchingWallCandidates = {
+    sideACandidates: Array<WallOffset>,
+    sideBCandidates: Array<WallOffset>,
+    middleCandidates: Array<WallOffset>
+};
+
+type WallOffset = { offsets: Array<Direction>, wallType: WallType };
