@@ -1,5 +1,5 @@
 import { Action, isMovePawn, isPlaceWall, MovePawn, parseAction, PlaceWall, WallType } from './action';
-import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate, areCoordinatesEqual } from './coordinate';
+import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate, areCoordinatesEqual, parseCoordinate } from './coordinate';
 import { Direction, dirs, dirsBiassedTowardsGoal } from './direction';
 
 export interface GameOptions {
@@ -9,25 +9,13 @@ export interface GameOptions {
     wallsPerPlayer?: number;
 }
 
-export interface GameState {
-    numCols: number;
-    numRows: number;
-    playerToMove: number;
-    moveNumber: number;
-    numPlayers: number;
-    playerWallsRemaining: Array<number>;
-    playerPositions: Array<Coordinate>;
-    horizontalWalls: Array<Coordinate>;
-    verticalWalls: Array<Coordinate>;
-}
-
 export class Game {
     private _numCols: number;
     private _numRows: number;
     private _playerToMove: number;
     private _moveNumber: number;
     private _numPlayers: number;
-    private _playerWallsRemaining: Array<number>;
+    private _wallsRemaining: Array<number>;
     private _playerPositions: Array<Coordinate>;
     private _horizontalWalls: Set<AlgebraicCoordinate> = new Set();
     private _verticalWalls: Set<AlgebraicCoordinate> = new Set();
@@ -36,20 +24,10 @@ export class Game {
         this._numCols = numCols;
         this._numRows = numRows;
         this._numPlayers = numPlayers;
-        this._playerWallsRemaining = Array(numPlayers).fill(wallsPerPlayer);
+        this._wallsRemaining = Array(numPlayers).fill(wallsPerPlayer);
         this._playerToMove = 1;
         this._moveNumber = 1;
         this._playerPositions = this.initialPlayerPositions();
-    }
-
-    public numWalls({ playerNum }: { playerNum: number }): number;
-    public numWalls({ playerNum, numWallsRemaining }: { playerNum: number, numWallsRemaining: number }): void;
-    public numWalls({ playerNum, numWallsRemaining }: { playerNum: number, numWallsRemaining?: number }): number | void {
-        if (numWallsRemaining !== undefined) {
-            this._playerWallsRemaining[playerNum - 1] = numWallsRemaining;
-        } else {
-            return this._playerWallsRemaining[playerNum - 1];
-        }
     }
 
     public playerToMove(): number;
@@ -72,6 +50,36 @@ export class Game {
         }
     }
 
+    public moveNumber(): number;
+    public moveNumber(moveNumber: number): void;
+    public moveNumber(moveNumber?: number): number | void {
+        if (moveNumber !== undefined) {
+            this._moveNumber = moveNumber;
+        } else {
+            return this._moveNumber;
+        }
+    }
+
+    public walls(): Array<[WallType, Coordinate]>;
+    public walls(walls: Array<[WallType, Coordinate]>): void;
+    public walls(walls?: Array<[WallType, Coordinate]>): Array<[WallType, Coordinate]> | void {
+        if (walls !== undefined) {
+            this.setWalls(walls);
+        } else {
+            return this.getWalls();
+        }
+    }
+
+    public wallsRemaining({ playerNum }: { playerNum: number }): number;
+    public wallsRemaining({ playerNum, numWalls }: { playerNum: number, numWalls: number }): void;
+    public wallsRemaining({ playerNum, numWalls }: { playerNum: number, numWalls?: number }): number | void {
+        if (numWalls !== undefined) {
+            this._wallsRemaining[playerNum - 1] = numWalls;
+        } else {
+            return this._wallsRemaining[playerNum - 1];
+        }
+    }
+
     public numColumns = (): number => this._numCols;
 
     public numRows = (): number => this._numRows;
@@ -89,7 +97,7 @@ export class Game {
             const algebraicCoordinate = coordinateToAlgebraic(action.coordinate);
             const walls = action.wallType === WallType.Horizontal ? this._horizontalWalls : this._verticalWalls;
             walls.add(algebraicCoordinate);
-            this._playerWallsRemaining[this._playerToMove - 1] -= 1;
+            this._wallsRemaining[this._playerToMove - 1] -= 1;
         }
 
         this.updatePlayerToMove();
@@ -151,15 +159,11 @@ export class Game {
         return this.playerHasWalls() && this.isValidWallPlacement(action);
     }
 
-    public moveNumber(): number {
-        return this._moveNumber;
-    }
-
     private isValidPawnMove = ({ coordinate }: MovePawn): boolean => this.validPawnMoveActions().some(({ coordinate: validCoord }) => areCoordinatesEqual(validCoord, coordinate));
 
     private isValidWallPlacement = (action: PlaceWall): boolean => !this.collidesWithExistingWall(action) && !this.isWallBlocking(action);
 
-    private playerHasWalls = () => this.numWalls({ playerNum: this.playerToMove() }) > 0
+    private playerHasWalls = () => this.wallsRemaining({ playerNum: this.playerToMove() }) > 0
 
     private wallPlacements(): Array<Action> {
         if (!this.playerHasWalls()) {
@@ -380,6 +384,22 @@ export class Game {
     }
 
     private intoAction = (action: Action | string): Action => typeof action === 'string' ? parseAction(action) : action;
+
+    private getWalls = (): Array<[WallType, Coordinate]> => [...this._horizontalWalls]
+        .map<[WallType, AlgebraicCoordinate]>(coordinate => [WallType.Horizontal, coordinate])
+        .concat([...this._verticalWalls].map(coordinate => [WallType.Vertical, coordinate]))
+        .map(([wallType, coordinate]) => [wallType, parseCoordinate(coordinate)]);
+
+    private setWalls(walls: Array<[WallType, Coordinate]>) {
+        this._horizontalWalls.clear();
+        this._verticalWalls.clear();
+
+        for (const [wallType, coordinate] of walls) {
+            const algebraicCoordinate = coordinateToAlgebraic(coordinate);
+            const wallSet = wallType === WallType.Horizontal ? this._horizontalWalls : this._verticalWalls;
+            wallSet.add(algebraicCoordinate);
+        }
+    }
 }
 
 type TouchingWallCandidates = {

@@ -12,10 +12,10 @@ describe('Game', () => {
         expect(game.numRows()).toBe(9);
     });
 
-    test('numWalls getter and setter', () => {
-        expect(game.numWalls({ playerNum: 1 })).toBe(10);
-        game.numWalls({ playerNum: 1, numWallsRemaining: 8 });
-        expect(game.numWalls({ playerNum: 1 })).toBe(8);
+    test('wallsRemaining getter and setter', () => {
+        expect(game.wallsRemaining({ playerNum: 1 })).toBe(10);
+        game.wallsRemaining({ playerNum: 1, numWalls: 8 });
+        expect(game.wallsRemaining({ playerNum: 1 })).toBe(8);
     });
 
     test('playerToMove getter and setter', () => {
