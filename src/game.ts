@@ -238,7 +238,7 @@ export class Game {
             accessibleSquares.add(coordinateToAlgebraic(playerPosition));
 
             while (candidateMoves.length) {
-                const [candidateCoord, candidateDir] = candidateMoves.pop();
+                const [candidateCoord, candidateDir] = candidateMoves.pop() as [Coordinate, Direction];
 
                 if (this.isCoordinateGoal(playerNum, candidateCoord)) {
                     goalReached = true;
