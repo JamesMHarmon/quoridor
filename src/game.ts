@@ -207,12 +207,24 @@ export class Game {
         // If the wall does not connect two points, then it cannot block the path of a pawn.
         const { sideACandidates, sideBCandidates, middleCandidates } = this.touchingWallCandidates(wallType);
 
-        const sideATouching = this.someWallAtOffsets(coordinate, sideACandidates);
-        const sideBTouching = this.someWallAtOffsets(coordinate, sideBCandidates);
+        const [sideAOnEdge, sideBOnEdge] = this.sideOnEdge({ coordinate, wallType });
+        const sideATouching = sideAOnEdge || this.someWallAtOffsets(coordinate, sideACandidates);
+        const sideBTouching = sideBOnEdge || this.someWallAtOffsets(coordinate, sideBCandidates);
         const middleTouching = this.someWallAtOffsets(coordinate, middleCandidates);
 
         // Return true if any two or more of the sides are touching existing walls.
         return (sideATouching && sideBTouching) || (sideATouching && middleTouching) || (sideBTouching && middleTouching);
+    }
+
+    private sideOnEdge({ coordinate, wallType }: PlaceWall): [boolean, boolean] {
+        const isHorizontalWall = wallType === WallType.Horizontal;
+        const column = columnNumericValue(coordinate.column);
+        const row = coordinate.row;
+
+        const sideAOnEdge = isHorizontalWall && column === 1 || !isHorizontalWall && row === this._numRows - 1;
+        const sideBOnEdge = isHorizontalWall && column === this._numCols - 1 || !isHorizontalWall && row === 1;
+
+        return [sideAOnEdge, sideBOnEdge];
     }
 
     private isWallBlocking({ coordinate, wallType }: PlaceWall): boolean {
@@ -359,8 +371,8 @@ export class Game {
     private touchingWallCandidates(wallType: WallType): TouchingWallCandidates {
         const isHorizontalWall = wallType === WallType.Horizontal;
         const oppositeWallType = isHorizontalWall ? WallType.Vertical : WallType.Horizontal;
-        const sideADirection = isHorizontalWall ? Direction.Up : Direction.Left;
-        const sideBDirection = isHorizontalWall ? Direction.Down : Direction.Right;
+        const sideADirection = isHorizontalWall ? Direction.Left : Direction.Up;
+        const sideBDirection = isHorizontalWall ? Direction.Right : Direction.Down;
         const perpendicularDirection = isHorizontalWall ? Direction.Up : Direction.Left;
         const perpendicularDirectionInverse = isHorizontalWall ? Direction.Down : Direction.Right;
 

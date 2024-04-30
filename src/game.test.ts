@@ -231,7 +231,7 @@ describe('Game', () => {
             const invalidActions = ['h3h'];
             invalidActions.forEach(invalidAction => expect(validActions).not.toContain(invalidAction));
 
-            expect(validActions.length).toBe(111);
+            expect(validActions.length).toBe(108);
 
             game.takeAction(parseAction('b2'));
             game.takeAction(parseAction('b8'));
@@ -239,6 +239,61 @@ describe('Game', () => {
             validActions = game.validWallActions().map(actionToAlgebraic);
             expect(validActions).toContain('h3h');
             expect(validActions.length).toBe(113);
+        });
+
+        test('It should return all valid wall placements that do not block players from reaching goal.', () => {
+            const game = new Game();
+            let validActions = game.validWallActions().map(actionToAlgebraic);
+
+            game.takeAction(parseAction('e5'));
+            game.takeAction(parseAction('e6'));
+            game.takeAction(parseAction('c3v'));
+            game.takeAction(parseAction('c5v'));
+            game.takeAction(parseAction('e3v'));
+            game.takeAction(parseAction('e5v'));
+            game.takeAction(parseAction('d6h'));
+
+            validActions = game.validWallActions().map(actionToAlgebraic);
+
+            const invalidActions = ['d2h'];
+            invalidActions.forEach(invalidAction => expect(validActions).not.toContain(invalidAction));
+
+            expect(validActions.length).toBe(106);
+
+            game.takeAction(parseAction('b2'));
+            game.takeAction(parseAction('b8'));
+
+            validActions = game.validWallActions().map(actionToAlgebraic);
+            expect(validActions).toContain('d2h');
+            expect(validActions.length).toBe(110);
+        });
+
+        test('It should return all valid wall placements touching edge that do not block players from reaching goal.', () => {
+            const game = new Game();
+            let validActions = game.validWallActions().map(actionToAlgebraic);
+
+            game.takeAction(parseAction('e5'));
+            game.takeAction(parseAction('e6'));
+            game.takeAction(parseAction('c5v'));
+            game.takeAction(parseAction('d4h'));
+            game.takeAction(parseAction('d6h'));
+            game.takeAction(parseAction('f4h'));
+            game.takeAction(parseAction('f6h'));
+            game.takeAction(parseAction('h4h'));
+
+            validActions = game.validWallActions().map(actionToAlgebraic);
+
+            const invalidActions = ['h6h'];
+            invalidActions.forEach(invalidAction => expect(validActions).not.toContain(invalidAction));
+
+            expect(validActions.length).toBe(104);
+
+            game.takeAction(parseAction('b2'));
+            game.takeAction(parseAction('b8'));
+
+            validActions = game.validWallActions().map(actionToAlgebraic);
+            expect(validActions).toContain('h6h');
+            expect(validActions.length).toBe(108);
         });
 
         test('It should return no valid wall placements if p1 has no walls remaining.', () => {
