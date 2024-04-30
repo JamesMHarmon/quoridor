@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "CommonJS",
+    "declaration": true,
+    "outDir": "./dist/cjs",
+    "moduleResolution": "node"
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

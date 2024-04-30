@@ -1,13 +1,13 @@
 {
   "name": "quoridor-engine",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "",
-  "main": "dist/index.js",
-  "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/cjs/index.d.ts",
   "prepublishOnly": "npm run build",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json",
     "test": "jest",
     "lint": "eslint . --ext .ts"
   },
