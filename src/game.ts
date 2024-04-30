@@ -159,6 +159,16 @@ export class Game {
         return this.playerHasWalls() && this.isValidWallPlacement(action);
     }
 
+    public terminal(): { isTerminal: boolean, playerNum: number } {
+        for (let playerNum = 1; playerNum <= this._numPlayers; playerNum++) {
+            if (this.isCoordinateGoal(playerNum, this.playerPosition({ playerNum }))) {
+                return { isTerminal: true, playerNum };
+            }
+        }
+
+        return { isTerminal: false, playerNum: 0 };
+    }
+
     private isValidPawnMove = ({ coordinate }: MovePawn): boolean => this.validPawnMoveActions().some(({ coordinate: validCoord }) => areCoordinatesEqual(validCoord, coordinate));
 
     private isValidWallPlacement = (action: PlaceWall): boolean => !this.collidesWithExistingWall(action) && !this.isWallBlocking(action);
