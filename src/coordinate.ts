@@ -33,22 +33,6 @@ export const columnNumericValue = (column: string): number => column.charCodeAt(
 
 export const numericColumnToChar = (column: number): string => String.fromCharCode(column + charCodeA - 1);
 
-export const adjacentCoords = (coordinate: Coordinate, dir: Direction): Array<Coordinate> => {
-    let coords: Array<Coordinate>;
-    switch (dir) {
-        case Direction.Up:
-        case Direction.Down:
-            coords = [coordinateInDir(coordinate, Direction.Left), coordinateInDir(coordinate, Direction.Right)]
-            break;
-        case Direction.Left:
-        case Direction.Right:
-            coords = [coordinateInDir(coordinate, Direction.Up), coordinateInDir(coordinate, Direction.Down)]
-            break;
-    }
-
-    return coords;
-}
-
 export const offsetCoordinate = (coordinate: Coordinate, offsets: Array<Direction>) => offsets.reduce((coord, dir) => coordinateInDir(coord, dir), coordinate);
 
 export const areCoordinatesEqual = (coord1: Coordinate, coord2: Coordinate): boolean => coord1.row === coord2.row && coord1.column === coord2.column;

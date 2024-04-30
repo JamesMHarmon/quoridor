@@ -1,6 +1,6 @@
 import { Action, isMovePawn, isPlaceWall, MovePawn, parseAction, PlaceWall, WallType } from './action';
-import { adjacentCoords, AlgebraicCoordinate, Coordinate, coordinateInDir, coordinateToAlgebraic, columnNumericValue, numericColumnToChar, offsetCoordinate, areCoordinatesEqual, parseCoordinate } from './coordinate';
-import { Direction, dirs, dirsBiassedTowardsGoal } from './direction';
+import { AlgebraicCoordinate, areCoordinatesEqual, columnNumericValue, Coordinate, coordinateInDir, coordinateToAlgebraic, numericColumnToChar, offsetCoordinate, parseCoordinate } from './coordinate';
+import { Direction, dirs, dirsBiassedTowardsGoal, perpendicularDirections } from './direction';
 
 export interface GameOptions {
     numCols?: number;
@@ -133,10 +133,10 @@ export class Game {
                 continue;
             }
 
-            // There is a pawn in the way and it can't jump over it, so check the adjacent (left or right) directions.
-            for (const coordinate of adjacentCoords(destCoord, dir)) {
-                if (this.pawnCanMove(coordinate, dir)) {
-                    const validPawnMoveDest = coordinateInDir(coordinate, dir);
+            // There is a pawn in the way and it can't jump over it, so check the perpendicular (left or right) directions.
+            for (const perpendicularDirection of perpendicularDirections(dir)) {
+                if (this.pawnCanMove(destCoord, perpendicularDirection)) {
+                    const validPawnMoveDest = coordinateInDir(destCoord, perpendicularDirection);
                     validActions.push({ coordinate: validPawnMoveDest });
                 }
             }

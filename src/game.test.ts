@@ -1,4 +1,5 @@
 import { parseAction, actionToAlgebraic } from './action';
+import { parseCoordinate } from './coordinate';
 import { Game } from './game';
 
 describe('Game', () => {
@@ -145,7 +146,6 @@ describe('Game', () => {
             ]);
         });
 
-
         test('should return valid pawn moves if on edge of board', () => {
             const game = new Game();
 
@@ -168,6 +168,23 @@ describe('Game', () => {
             ]);
         });
 
+        test('Should return valid pawn moves if blocked by wall on the top', () => {
+            const game = new Game();
+
+            game.takeAction(parseAction('e5'));
+            game.takeAction(parseAction('e6'));
+            game.takeAction(parseAction('e6h'));
+            game.playerToMove({ playerNum: 1 });
+
+            const validActions = game.validPawnMoveActions();
+            expect(validActions).toEqual([
+                { coordinate: parseCoordinate('d6') },
+                { coordinate: parseCoordinate('f6') },
+                { coordinate: parseCoordinate('f5') },
+                { coordinate: parseCoordinate('e4') },
+                { coordinate: parseCoordinate('d5') },
+            ]);
+        });
     });
 
     describe('validWallActions', () => {

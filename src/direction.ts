@@ -23,3 +23,16 @@ export const dirsBiassedTowardsGoal = (playerNum: number): Array<Direction> => {
 
     return [];
 }
+
+export const perpendicularDirections = (dir: Direction): Array<Direction> => {
+    switch (dir) {
+        case Direction.Up:
+        case Direction.Down:
+            return [Direction.Left, Direction.Right]
+            break;
+        case Direction.Left:
+        case Direction.Right:
+            return [Direction.Up, Direction.Down]
+            break;
+    }
+}
