@@ -1,15 +1,15 @@
 {
   "name": "quoridor-engine",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/cjs/index.d.ts",
-  "prepublishOnly": "npm run build",
   "scripts": {
     "build": "tsc -p tsconfig.cjs.json && tsc -p tsconfig.esm.json",
     "test": "jest --rootDir=./src",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "prepublishOnly": "npm run test && npm run build"
   },
   "author": "",
   "license": "ISC",
